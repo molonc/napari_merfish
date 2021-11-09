@@ -34,32 +34,32 @@ if __name__=="__main__":
         image_root = f'/decoding/decoded_images/decoded_{fov}.npy'
 
         img = np.load(analysis_dir+image_root)
-
-        #add decoded image
-        viewer.add_image(img,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'decoded')
+        if config["decoded_img"]:
+            #add decoded image
+            viewer.add_image(img,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'decoded')
 
         #add 473 volume
         channel = 473
         channel_format = f'{channel}nm, Raw/'
         irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
-        viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'473 volume fov:{fov}',opacity=0.5,scale=[1,z_spacing/stage2z_scaling,1,1]) 
+        viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'fov:{fov}, {channel}nm volume',opacity=0.5,scale=[1,z_spacing/stage2z_scaling,1,1]) 
         #add 647 volume 
         channel = 647
         channel_format = f'{channel}nm, Raw/'
         irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
-        viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'647 volume fov:{fov}',opacity=0.5,colormap='red',scale=[1,z_spacing/stage2z_scaling,1,1]) 
+        viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'fov:{fov}, {channel}nm volume',opacity=0.5,colormap='red',scale=[1,z_spacing/stage2z_scaling,1,1]) 
         #add 750 volume 
         channel = 750
         channel_format = f'{channel}nm, Raw/'
         irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
-        viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'750 volume fov:{fov}',opacity=0.5,colormap='green',scale=[1,z_spacing/stage2z_scaling,1,1]) 
+        viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'fov:{fov}, {channel}nm volume',opacity=0.5,colormap='green',scale=[1,z_spacing/stage2z_scaling,1,1]) 
 
         viewer.dims.axis_labels = ['IR', 'Z', 'Y', 'X']
 
 
 
-    # start the event loop and show the viewer
+    viewer.reset_view()# start the event loop and show the viewer
     napari.run()
