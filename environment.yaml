@@ -8,5 +8,5 @@ dependencies:
   - openpyxl
   - dask-image
   - pip
-  pip:
+  - pip:
     - napari[all]
