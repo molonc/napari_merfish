@@ -4,12 +4,14 @@ import numpy as np
 import pandas as pd
 from dask_image.imread import imread
 import dask.array as da
+
+import json
+
 if __name__=="__main__":
-    
-    _z = 1
+    config = json.load(open('config.json'))
     ir_upper=9 #Has to 9 or less
-    raw_data_dir = '/Volumes/MERFISH_COLD/XP872/20210917 4T1 C1E1/4T1/C1E1/'
-    
+    raw_data_dir = config["raw_data_dir"]
+    analysis_dir = config["analysis_dir"]
     stagepos_file = raw_data_dir + 'stagePos_Round#1.xlsx'
 
     stage = pd.read_excel(stagepos_file)
@@ -22,9 +24,9 @@ if __name__=="__main__":
     x_loc = x_loc-x_loc.iloc[0]
     y_loc = y_loc-y_loc.iloc[0]
 
-    stage2pix_scaling=0.17525 # nikon/pix
-    stage2z_scaling = 1 #nikon/z
-    analysis_dir = '/Volumes/MERFISH_COLD/XP872/20210917 4T1 C1E1/Analyzed_02_at4'
+    stage2pix_scaling=config["stage2pix_scaling"] # nikon/pix
+    stage2z_scaling = config["stage2pix_scaling"] #nikon/z
+    
     viewer = napari.Viewer()
     for idx,fov in enumerate(fovs):
         
