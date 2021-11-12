@@ -48,8 +48,7 @@ if __name__=="__main__":
             for delayed_reader in lazy_decodes
             ]
             stack = da.stack(dask_arrays, axis=0)
-            print(stack.shape)
-            #stack = da.broadcast_to(stack,(1,stack.shape[0],stack.shape[1],stack.shape[2]))
+            stack = da.broadcast_to(stack,(1,stack.shape[0],stack.shape[1],stack.shape[2]))
             #add decoded image
             viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'decoded',scale=[1,z_spacing/stage2z_scaling,1,1])
 
