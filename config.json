@@ -1,7 +1,7 @@
 {
     "raw_data_dir": "/Volumes/MERFISH_COLD/XP872/20210917 4T1 C1E1/4T1/C1E1/",
-    "analysis_dir": "/Volumes/MERFISH_COLD/XP872/20210917 4T1 C1E1/Analyzed_02_at4",
+    "analysis_dir": "/Volumes/MERFISH_COLD/XP872/20210917 4T1 C1E1/Analyzed_z_slim_test_at0",
     "stage2pix_scaling":0.17525,
     "stage2z_scaling":1,
-    "decoded_img":false
+    "decoded_img":true
 }

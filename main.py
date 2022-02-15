@@ -7,6 +7,17 @@ import dask.array as da
 from dask import delayed
 import json
 
+def gene_mask(arr,g):
+    v = da.equal(arr,g)
+    return v
+
+def dask_reshape(arr,gmax):
+    
+    gene_map = [gene_mask(arr-1,g) for g in range(gmax)]
+    x=da.stack(1*gene_map,axis=0)
+    return x
+    
+
 if __name__=="__main__":
     config = json.load(open('config.json'))
     ir_upper=9 #Has to 9 or less
@@ -38,19 +49,29 @@ if __name__=="__main__":
         if config["decoded_img"]:
             
             sample = np.load(analysis_dir+image_root.format(z_lower))
-
+            num_genes = sample.max()
+            
             lazy_npload = delayed(np.load)
+            lazy_reshapefn = delayed(dask_reshape)
             _zs = np.arange(z_lower,z_num+1)
             lazy_decodes = [lazy_npload(analysis_dir+image_root.format(z)) for z in _zs]
-
+            
             dask_arrays = [
             da.from_delayed(delayed_reader, shape=sample.shape, dtype=sample.dtype)
             for delayed_reader in lazy_decodes
             ]
+            lazy_reshapes = [lazy_reshapefn(da,num_genes) for da in dask_arrays]
+            dask_arrays = [
+            da.from_delayed(lr, shape=(num_genes,*sample.shape), dtype=sample.dtype)
+            for lr in lazy_reshapes
+            ]
+
             stack = da.stack(dask_arrays, axis=0)
-            stack = da.broadcast_to(stack,(1,stack.shape[0],stack.shape[1],stack.shape[2]))
+            
+            stack = da.broadcast_to(stack,(1,stack.shape[0],stack.shape[1],stack.shape[2],stack.shape[3]))
+            stack = da.transpose(stack,[2,0,1,3,4])
             #add decoded image
-            viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'decoded',scale=[1,z_spacing/stage2z_scaling,1,1])
+            viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'decoded',scale=[1,1,z_spacing/stage2z_scaling,1,1])
 
         #add 473 volume
         channel = 473
@@ -71,7 +92,7 @@ if __name__=="__main__":
         stack = da.stack(irs)    
         viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'fov:{fov}, {channel}nm volume',opacity=0.5,colormap='green',scale=[1,z_spacing/stage2z_scaling,1,1]) 
 
-        viewer.dims.axis_labels = ['IR', 'Z', 'Y', 'X']
+        viewer.dims.axis_labels = ['GN','IR', 'Z', 'Y', 'X']
 
 
 
