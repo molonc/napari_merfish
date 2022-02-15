@@ -1,4 +1,4 @@
-name: napari-env
+name: merfish_visualizer
 channels:
   - defaults
 dependencies:
