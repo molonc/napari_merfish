@@ -6,7 +6,7 @@ Using the Napari multidimensional viewer for efficient viewing of merFISH result
 To use this visualiser, use conda to install the environment
 
 ```
-conda create env -f environment.yaml
+conda env create -f environment.yaml
 conda activate merfish_visualizer
 ```
 
