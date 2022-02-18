@@ -6,6 +6,7 @@ from dask_image.imread import imread
 import dask.array as da
 from dask import delayed
 import json
+import os
 
 def gene_mask(arr,g):
     v = da.equal(arr,g)
@@ -23,16 +24,22 @@ if __name__=="__main__":
     ir_upper=9 #Has to 9 or less
     raw_data_dir = config["raw_data_dir"]
     analysis_dir = config["analysis_dir"]
-    stagepos_file = raw_data_dir + 'stagePos_Round#1.xlsx'
+    stagepos_file = os.path.join(raw_data_dir,'stagePos_Round#1.xlsx')
 
     stage = pd.read_excel(stagepos_file)
     z_lower = 2
     z_num = len(stage.columns)-5
-    fovs = stage['Var1_ 1'].apply(lambda x: f'{x:03d}')
-    x_loc = stage['Var1_ 4']
-    y_loc = stage['Var1_ 5']
-    z_spacing = np.abs(stage['Var1_ 6'][0]-stage['Var1_ 7'][0])
-
+    if 'Var1_ 1' in stage.columns: #Backwards compatability with old stagepos files
+        fovs = stage['Var1_ 1'].apply(lambda x: f'{x:03d}')
+        x_loc = stage['Var1_ 4']
+        y_loc = stage['Var1_ 5']
+        z_spacing = np.abs(stage['Var1_ 6'][0]-stage['Var1_ 7'][0])
+    else:
+        fovs = stage['tile_number'].apply(lambda x: f'{x:03d}')
+        x_loc = stage['stage_pos_x']
+        y_loc = stage['stage_pos_y']
+        z_spacing = np.abs(stage['z_position_1'][0]-stage['z_position_2'][0])
+    
     x_loc = x_loc-x_loc.iloc[0]
     y_loc = y_loc-y_loc.iloc[0]
 
