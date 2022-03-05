@@ -21,13 +21,13 @@ def dask_reshape(arr,gmax):
 
 if __name__=="__main__":
     config = json.load(open('config.json'))
-    ir_upper=9 #Has to 9 or less
+    ir_upper=config["ir_upper"] #Has to 9 or less
     raw_data_dir = config["raw_data_dir"]
     analysis_dir = config["analysis_dir"]
     stagepos_file = os.path.join(raw_data_dir,'stagePos_Round#1.xlsx')
 
     stage = pd.read_excel(stagepos_file)
-    z_lower = 2
+    z_lower = config["z_lower"]
     z_num = len(stage.columns)-5
     if 'Var1_ 1' in stage.columns: #Backwards compatability with old stagepos files
         fovs = stage['Var1_ 1'].apply(lambda x: f'{x:03d}')
@@ -54,8 +54,11 @@ if __name__=="__main__":
 
         
         if config["decoded_img"]:
-            
-            sample = np.load(analysis_dir+image_root.format(z_lower))
+            name =analysis_dir+image_root.format(z_lower)
+            if not os.path.isfile(name):
+                print(f"{name} does not exist")
+                continue
+            sample = np.load(name)
             num_genes = sample.max()
             
             lazy_npload = delayed(np.load)
@@ -85,20 +88,47 @@ if __name__=="__main__":
         channel_format = f'{channel}nm, Raw/'
         irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
-        viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'fov:{fov}, {channel}nm volume',opacity=0.5,scale=[1,z_spacing/stage2z_scaling,1,1]) 
+        viewer.add_image(stack,
+                                translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
+                                name=f'fov:{fov}, {channel}nm volume',
+                                opacity=0.5,
+                                scale=[1,z_spacing/stage2z_scaling,1,1],
+                                contrast_limits=[0,2**16]) 
+        #add 561 volume
+        channel = 561
+        channel_format = f'{channel}nm, Raw/'
+        irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
+        stack = da.stack(irs)    
+        viewer.add_image(stack,
+                                translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
+                                name=f'fov:{fov}, {channel}nm volume',
+                                opacity=0.5,
+                                scale=[1,z_spacing/stage2z_scaling,1,1],
+                                contrast_limits=[0,2**16])         
         #add 647 volume 
         channel = 647
         channel_format = f'{channel}nm, Raw/'
         irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
-        viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'fov:{fov}, {channel}nm volume',opacity=0.5,colormap='red',scale=[1,z_spacing/stage2z_scaling,1,1]) 
+        viewer.add_image(stack,
+                                translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
+                                name=f'fov:{fov}, {channel}nm volume',
+                                opacity=0.5,
+                                scale=[1,z_spacing/stage2z_scaling,1,1],
+                                contrast_limits=[0,2**16],
+                                colormap='yellow')
         #add 750 volume 
         channel = 750
         channel_format = f'{channel}nm, Raw/'
         irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
-        viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'fov:{fov}, {channel}nm volume',opacity=0.5,colormap='green',scale=[1,z_spacing/stage2z_scaling,1,1]) 
-
+        viewer.add_image(stack,
+                                translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
+                                name=f'fov:{fov}, {channel}nm volume',
+                                opacity=0.5,
+                                scale=[1,z_spacing/stage2z_scaling,1,1],
+                                contrast_limits=[0,2**16],
+                                colormap='green')
         viewer.dims.axis_labels = ['GN','IR', 'Z', 'Y', 'X']
 
 
