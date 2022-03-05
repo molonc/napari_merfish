@@ -1,4 +1,4 @@
-name: merfish_visualizer
+name: conda 
 channels:
   - defaults
 dependencies:
