@@ -1,12 +1,17 @@
 import napari
 import skimage.io as skio
+import scipy.ndimage as ndi
 import numpy as np
 import pandas as pd
 from dask_image.imread import imread
+from dask_image.ndfourier import fourier_shift
 import dask.array as da
+from dask.array.image import imread as daimread
 from dask import delayed
 import json
 import os
+import functools
+import pandas as pd
 
 def gene_mask(arr,g):
     v = da.equal(arr,g)
@@ -18,6 +23,32 @@ def dask_reshape(arr,gmax):
     x=da.stack(1*gene_map,axis=0)
     return x
     
+def getTLBF(df:pd.DataFrame,im_shape):
+    # TODO: THIS NEEDS TO BE CHANGED WITH THE NEW CSV FORMAT
+    shift_r = [0]
+    shift_r.extend(df['shift_x'].to_list())
+    shift_c = [0]
+    shift_c.extend(df['shift_y'].to_list())
+
+    dx_tl = np.max(np.maximum(shift_c,0))
+    dy_tl = np.max(np.maximum(shift_r,0))
+
+    dx_br = np.min(np.minimum(shift_c,0))
+    dy_br = np.min(np.minimum(shift_r,0))
+
+    tl = np.ceil([dy_tl,dx_tl]).astype(int)
+    br = np.floor([im_shape[0]+dy_br,im_shape[1]+dx_br]).astype(int)
+    return shift_r,shift_c,tl, br
+
+def load_img_and_shift(fn,shift,tl,br):
+    _img = skio.imread(fn)
+    #just perform the shift and then trim
+
+    shifted_img = ndi.shift(_img,shift)
+
+    cropped_img = shifted_img#[tl[0]:br[0],tl[1]:br[1]]
+
+    return cropped_img
 
 if __name__=="__main__":
     config = json.load(open('config.json'))
@@ -31,13 +62,13 @@ if __name__=="__main__":
     z_num = len(stage.columns)-5
     if 'Var1_ 1' in stage.columns: #Backwards compatability with old stagepos files
         fovs = stage['Var1_ 1'].apply(lambda x: f'{x:03d}')
-        x_loc = stage['Var1_ 4']
-        y_loc = stage['Var1_ 5']
+        x_loc = stage['Var1_ 5']
+        y_loc = stage['Var1_ 4']
         z_spacing = np.abs(stage['Var1_ 6'][0]-stage['Var1_ 7'][0])
     else:
         fovs = stage['tile_number'].apply(lambda x: f'{x:03d}')
-        x_loc = stage['stage_pos_x']
-        y_loc = stage['stage_pos_y']
+        x_loc = stage['stage_pos_y']
+        y_loc = stage['stage_pos_x']
         z_spacing = np.abs(stage['z_position_1'][0]-stage['z_position_2'][0])
     
     x_loc = x_loc-x_loc.iloc[0]
@@ -48,17 +79,26 @@ if __name__=="__main__":
     
     viewer = napari.Viewer()
     for idx,fov in enumerate(fovs):
-        
+        shift_r=np.full((ir_upper,1),0)
+        shift_c=np.full((ir_upper,1),0)
+        tl,bf = 0,0 
         pattern_img =  'merFISH_{:02d}_' +f'{fov}_*.TIFF'
         image_root = f'/decoding/decoded_images/decoded_{fov}'+'_{:02d}.npy'
-
+        alignment_root = f'/aligned/shift_{fov}.csv'
         
         if config["decoded_img"]:
+            shift_name =analysis_dir+alignment_root
+            
+
+
             name =analysis_dir+image_root.format(z_lower)
             if not os.path.isfile(name):
                 print(f"{name} does not exist")
                 continue
             sample = np.load(name)
+            if os.path.isfile(shift_name):
+                df= pd.read_csv(shift_name)
+                shift_r,shift_c,tl, br = getTLBF(df,sample.shape)
             num_genes = sample.max()
             
             lazy_npload = delayed(np.load)
@@ -81,7 +121,8 @@ if __name__=="__main__":
             stack = da.broadcast_to(stack,(1,stack.shape[0],stack.shape[1],stack.shape[2],stack.shape[3]))
             stack = da.transpose(stack,[2,0,1,3,4])
             #add decoded image
-            viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),name=f'decoded',scale=[1,1,z_spacing/stage2z_scaling,1,1])
+
+            viewer.add_image(stack,translate=((x_loc.iloc[idx]+tl[1])/stage2pix_scaling,(y_loc[idx]+tl[0])/stage2pix_scaling),name=f'decoded',scale=[1,1,z_spacing/stage2z_scaling,1,1])
 
         #add 473 volume
         channel = 473
@@ -89,7 +130,8 @@ if __name__=="__main__":
         irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
         viewer.add_image(stack,
-                                translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
+                                translate=((x_loc[idx])/stage2pix_scaling,
+                                            (y_loc[idx])/stage2pix_scaling),
                                 name=f'fov:{fov}, {channel}nm volume',
                                 opacity=0.5,
                                 scale=[1,z_spacing/stage2z_scaling,1,1],
@@ -97,10 +139,19 @@ if __name__=="__main__":
         #add 561 volume
         channel = 561
         channel_format = f'{channel}nm, Raw/'
-        irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
+        irs = [
+            daimread(raw_data_dir + channel_format + pattern_img.format(ir),functools.partial(load_img_and_shift,
+                                                                                                                shift = (shift_r[ir-1],shift_c[ir-1]),tl=tl,br=br
+                                                                                                )
+                    ) 
+            for ir in range(1,ir_upper)
+            ]
+        # irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
         viewer.add_image(stack,
-                                translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
+                                translate=(
+                                            x_loc.iloc[idx]/stage2pix_scaling,
+                                            y_loc[idx]/stage2pix_scaling),
                                 name=f'fov:{fov}, {channel}nm volume',
                                 opacity=0.5,
                                 scale=[1,z_spacing/stage2z_scaling,1,1],
@@ -108,7 +159,13 @@ if __name__=="__main__":
         #add 647 volume 
         channel = 647
         channel_format = f'{channel}nm, Raw/'
-        irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
+        irs = [
+            daimread(raw_data_dir + channel_format + pattern_img.format(ir),functools.partial(load_img_and_shift,
+                                                                                                                shift = (shift_r[ir-1],shift_c[ir-1]),tl=tl,br=br
+                                                                                                )
+                    ) 
+            for ir in range(1,ir_upper)
+            ]
         stack = da.stack(irs)    
         viewer.add_image(stack,
                                 translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
@@ -120,7 +177,13 @@ if __name__=="__main__":
         #add 750 volume 
         channel = 750
         channel_format = f'{channel}nm, Raw/'
-        irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
+        irs = [
+            daimread(raw_data_dir + channel_format + pattern_img.format(ir),functools.partial(load_img_and_shift,
+                                                                                                                shift = (shift_r[ir-1],shift_c[ir-1]),tl=tl,br=br
+                                                                                                )
+                    ) 
+            for ir in range(1,ir_upper)
+            ]
         stack = da.stack(irs)    
         viewer.add_image(stack,
                                 translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
