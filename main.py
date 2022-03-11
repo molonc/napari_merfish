@@ -73,7 +73,7 @@ if __name__=="__main__":
     z_lower = config["z_lower"]
     z_num = config["z_upper"]#len(stage.columns)-5
     _fovs = [i for i in range(1,len(stage))]
-    fovs = map(lambda x: f'{x:03d}',_fovs)
+    fovs = list(map(lambda x: f'{x:03d}',_fovs))
     if 'Var1_ 1' in stage.columns: #Backwards compatability with old stagepos files
         x_loc = stage['Var1_ 5']
         y_loc = stage['Var1_ 4']
@@ -214,7 +214,7 @@ if __name__=="__main__":
 
 
     if config["decoded_img"]:
-        barcode_viewer=widgets.FancyGUI(viewer,codebook_df)
+        barcode_viewer=widgets.FancyGUI(viewer,codebook_df,fovs=fovs,x_loc=x_loc.to_numpy()/stage2pix_scaling,y_loc=y_loc.to_numpy()/stage2pix_scaling,img_scale=[1,z_spacing/stage2z_scaling,-1,1])
         viewer.window.add_dock_widget(barcode_viewer,area='right')
 
     viewer.reset_view()# start the event loop and show the viewer
