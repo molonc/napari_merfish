@@ -1,3 +1,4 @@
+from magicgui import magicgui
 import napari
 import skimage.io as skio
 import scipy.ndimage as ndi
@@ -12,6 +13,11 @@ import json
 import os
 import functools
 import pandas as pd
+import matplotlib.pyplot as plt
+from napari.types import ImageData, PointsData
+import widgets
+from magicgui import magicgui
+import functools
 
 def gene_mask(arr,g):
     v = da.equal(arr,g)
@@ -57,16 +63,26 @@ if __name__=="__main__":
     analysis_dir = config["analysis_dir"]
     stagepos_file = os.path.join(raw_data_dir,'stagePos_Round#1.xlsx')
 
-    stage = pd.read_excel(stagepos_file)
+    if os.path.isfile(stagepos_file):
+        stage = pd.read_excel(stagepos_file)
+    else:
+        stagepos_file = os.path.join(raw_data_dir,'stage_position_1.csv')
+        stage = pd.read_csv(stagepos_file)
+        
+    
     z_lower = config["z_lower"]
-    z_num = len(stage.columns)-5
+    z_num = config["z_upper"]#len(stage.columns)-5
+    _fovs = [i for i in range(1,len(stage))]
+    fovs = map(lambda x: f'{x:03d}',_fovs)
     if 'Var1_ 1' in stage.columns: #Backwards compatability with old stagepos files
-        fovs = stage['Var1_ 1'].apply(lambda x: f'{x:03d}')
         x_loc = stage['Var1_ 5']
         y_loc = stage['Var1_ 4']
         z_spacing = np.abs(stage['Var1_ 6'][0]-stage['Var1_ 7'][0])
+    elif 'x_pos' in stage.columns:
+        x_loc = stage['y_pos']
+        y_loc = stage['x_pos']
+        z_spacing = np.abs(stage['z_slice_0'][0]-stage['z_slice_1'][0])
     else:
-        fovs = stage['tile_number'].apply(lambda x: f'{x:03d}')
         x_loc = stage['stage_pos_y']
         y_loc = stage['stage_pos_x']
         z_spacing = np.abs(stage['z_position_1'][0]-stage['z_position_2'][0])
@@ -81,16 +97,17 @@ if __name__=="__main__":
     for idx,fov in enumerate(fovs):
         shift_r=np.full((ir_upper,1),0)
         shift_c=np.full((ir_upper,1),0)
-        tl,bf = 0,0 
-        pattern_img =  'merFISH_{:02d}_' +f'{fov}_*.TIFF'
+        tl,br = 0,0 
+        pattern_img =  config["file_pattern"].format(fov=fov)
         image_root = f'/decoding/decoded_images/decoded_{fov}'+'_{:02d}.npy'
         alignment_root = f'/aligned/shift_{fov}.csv'
         
         if config["decoded_img"]:
             shift_name =analysis_dir+alignment_root
             
-
-
+            codebook_name = os.path.join(config["raw_data_dir"],config["codebook_name"])
+            codebook_df = pd.read_csv(codebook_name,skiprows=3)
+            codebook_df=codebook_df.rename(columns={c:c.strip() for c in codebook_df.columns},errors='raise')
             name =analysis_dir+image_root.format(z_lower)
             if not os.path.isfile(name):
                 print(f"{name} does not exist")
@@ -122,25 +139,25 @@ if __name__=="__main__":
             stack = da.transpose(stack,[2,0,1,3,4])
             #add decoded image
 
-            viewer.add_image(stack,translate=((x_loc.iloc[idx]+tl[1])/stage2pix_scaling,(y_loc[idx]+tl[0])/stage2pix_scaling),name=f'decoded',scale=[1,1,z_spacing/stage2z_scaling,1,1])
+            viewer.add_image(stack,translate=((x_loc.iloc[idx])/stage2pix_scaling,(-y_loc[idx])/stage2pix_scaling),name=f'decoded',scale=[1,1,z_spacing/stage2z_scaling,-1,1])
 
         #add 473 volume
-        channel = 473
+        channel = 488
         channel_format = f'{channel}nm, Raw/'
-        irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir)) for ir in range(1,ir_upper)]
+        irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir=ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
         viewer.add_image(stack,
                                 translate=((x_loc[idx])/stage2pix_scaling,
-                                            (y_loc[idx])/stage2pix_scaling),
+                                            (-y_loc[idx])/stage2pix_scaling),
                                 name=f'fov:{fov}, {channel}nm volume',
                                 opacity=0.5,
-                                scale=[1,z_spacing/stage2z_scaling,1,1],
+                                scale=[1,z_spacing/stage2z_scaling,-1,1],
                                 contrast_limits=[0,2**16]) 
         #add 561 volume
         channel = 561
         channel_format = f'{channel}nm, Raw/'
         irs = [
-            daimread(raw_data_dir + channel_format + pattern_img.format(ir),functools.partial(load_img_and_shift,
+            daimread(raw_data_dir + channel_format + pattern_img.format(ir=ir),functools.partial(load_img_and_shift,
                                                                                                                 shift = (shift_r[ir-1],shift_c[ir-1]),tl=tl,br=br
                                                                                                 )
                     ) 
@@ -151,16 +168,16 @@ if __name__=="__main__":
         viewer.add_image(stack,
                                 translate=(
                                             x_loc.iloc[idx]/stage2pix_scaling,
-                                            y_loc[idx]/stage2pix_scaling),
+                                            -y_loc[idx]/stage2pix_scaling),
                                 name=f'fov:{fov}, {channel}nm volume',
                                 opacity=0.5,
-                                scale=[1,z_spacing/stage2z_scaling,1,1],
+                                scale=[1,z_spacing/stage2z_scaling,-1,1],
                                 contrast_limits=[0,2**16])         
         #add 647 volume 
         channel = 647
         channel_format = f'{channel}nm, Raw/'
         irs = [
-            daimread(raw_data_dir + channel_format + pattern_img.format(ir),functools.partial(load_img_and_shift,
+            daimread(raw_data_dir + channel_format + pattern_img.format(ir=ir),functools.partial(load_img_and_shift,
                                                                                                                 shift = (shift_r[ir-1],shift_c[ir-1]),tl=tl,br=br
                                                                                                 )
                     ) 
@@ -168,17 +185,17 @@ if __name__=="__main__":
             ]
         stack = da.stack(irs)    
         viewer.add_image(stack,
-                                translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
+                                translate=(x_loc.iloc[idx]/stage2pix_scaling,-y_loc[idx]/stage2pix_scaling),
                                 name=f'fov:{fov}, {channel}nm volume',
                                 opacity=0.5,
-                                scale=[1,z_spacing/stage2z_scaling,1,1],
+                                scale=[1,z_spacing/stage2z_scaling,-1,1],
                                 contrast_limits=[0,2**16],
                                 colormap='yellow')
         #add 750 volume 
         channel = 750
         channel_format = f'{channel}nm, Raw/'
         irs = [
-            daimread(raw_data_dir + channel_format + pattern_img.format(ir),functools.partial(load_img_and_shift,
+            daimread(raw_data_dir + channel_format + pattern_img.format(ir=ir),functools.partial(load_img_and_shift,
                                                                                                                 shift = (shift_r[ir-1],shift_c[ir-1]),tl=tl,br=br
                                                                                                 )
                     ) 
@@ -186,15 +203,19 @@ if __name__=="__main__":
             ]
         stack = da.stack(irs)    
         viewer.add_image(stack,
-                                translate=(x_loc.iloc[idx]/stage2pix_scaling,y_loc[idx]/stage2pix_scaling),
+                                translate=(x_loc.iloc[idx]/stage2pix_scaling,-y_loc[idx]/stage2pix_scaling),
                                 name=f'fov:{fov}, {channel}nm volume',
                                 opacity=0.5,
-                                scale=[1,z_spacing/stage2z_scaling,1,1],
+                                scale=[1,z_spacing/stage2z_scaling,-1,1],
                                 contrast_limits=[0,2**16],
                                 colormap='green')
         viewer.dims.axis_labels = ['GN','IR', 'Z', 'Y', 'X']
 
 
+
+    if config["decoded_img"]:
+        barcode_viewer=widgets.FancyGUI(viewer,codebook_df)
+        viewer.window.add_dock_widget(barcode_viewer,area='right')
 
     viewer.reset_view()# start the event loop and show the viewer
     napari.run()

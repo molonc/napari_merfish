@@ -1,9 +1,12 @@
 {
-    "raw_data_dir": "/Volumes/MERFISH_COLD/XP1565/1/1/",
-    "analysis_dir": "/Volumes/MERFISH_COLD/XP1565/Analysis_goodFOVs_no003_z4_10it",
-    "stage2pix_scaling":0.17525,
+    "raw_data_dir": "/Volumes/MERFISH_COLD/XP1678 20220309 ONI merfish/",
+    "analysis_dir": "/Volumes/MERFISH_COLD/XP1678 20220309 ONI merfish/Analysis",
+    "stage2pix_scaling":0.116999998688698,
     "stage2z_scaling":1,
     "decoded_img":true,
     "ir_upper":9,
-    "z_lower":4
+    "z_lower":1,
+    "z_upper":10,
+    "file_pattern": "merFISH_{{ir:02d}}_{fov}_*.tiff",
+    "codebook_name":"C1E1_codebook_shahid.csv"
 }
