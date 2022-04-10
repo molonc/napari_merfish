@@ -32,9 +32,9 @@ def dask_reshape(arr,gmax):
 def getTLBF(df:pd.DataFrame,im_shape):
     # TODO: THIS NEEDS TO BE CHANGED WITH THE NEW CSV FORMAT
     shift_r = [0]
-    shift_r.extend(df['shift_x'].to_list())
+    shift_r.extend(df['shift_y'].to_list())
     shift_c = [0]
-    shift_c.extend(df['shift_y'].to_list())
+    shift_c.extend(df['shift_x'].to_list())
 
     dx_tl = np.max(np.maximum(shift_c,0))
     dy_tl = np.max(np.maximum(shift_r,0))
@@ -44,7 +44,7 @@ def getTLBF(df:pd.DataFrame,im_shape):
 
     tl = np.ceil([dy_tl,dx_tl]).astype(int)
     br = np.floor([im_shape[0]+dy_br,im_shape[1]+dx_br]).astype(int)
-    return shift_r,shift_c,tl, br
+    return shift_r,shift_c,tl, br,dx_tl,dy_tl
 
 def load_img_and_shift(fn,shift,tl,br):
     _img = skio.imread(fn)
@@ -115,7 +115,7 @@ if __name__=="__main__":
             sample = np.load(name)
             if os.path.isfile(shift_name):
                 df= pd.read_csv(shift_name)
-                shift_r,shift_c,tl, br = getTLBF(df,sample.shape)
+                shift_r,shift_c,tl, br, dx_tl,dy_tl= getTLBF(df,sample.shape)
             num_genes = sample.max()
             
             lazy_npload = delayed(np.load)
@@ -139,10 +139,10 @@ if __name__=="__main__":
             stack = da.transpose(stack,[2,0,1,3,4])
             #add decoded image
 
-            viewer.add_image(stack,translate=((x_loc.iloc[idx])/stage2pix_scaling,(-y_loc[idx])/stage2pix_scaling),name=f'decoded',scale=[1,1,z_spacing/stage2z_scaling,-1,1])
+            viewer.add_image(stack,translate=(x_loc.iloc[idx]/stage2pix_scaling,-y_loc[idx]/stage2pix_scaling),name=f'decoded',scale=[1,1,z_spacing/stage2z_scaling,-1,1],blending='additive')
 
         #add 473 volume
-        channel = 488
+        channel = 473
         channel_format = f'{channel}nm, Raw/'
         irs = [imread(raw_data_dir + channel_format + pattern_img.format(ir=ir)) for ir in range(1,ir_upper)]
         stack = da.stack(irs)    
