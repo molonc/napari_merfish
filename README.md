@@ -16,11 +16,13 @@ There is a `config.yaml` file that will take in the following parameters
 
 ```
 {
-    "raw_data_dir": "/Volumes/MERFISH_COLD/XP872/20210917 4T1 C1E1/4T1/C1E1/",
-    "analysis_dir": "/Volumes/MERFISH_COLD/XP872/20210917 4T1 C1E1/Analyzed_z_slim_test_at0",
-    "stage2pix_scaling":0.17525,
-    "stage2z_scaling":1,
-    "decoded_img":true
+    "raw_data_dir": [str],
+    "analysis_dir": [str],
+    "stage2pix_scaling":[float],
+    "stage2z_scaling":[float],
+    "decoded_img":[true or false],
+    "ir_upper":[int],
+    "z_lower":[int]
 }
 ```
 
@@ -28,9 +30,17 @@ If `decoded_img` is `false`, then `analysis_dir` is not looked at. This would be
 
 The rest of the parameters are taken from the `stagePos_Round#1.xlsx` file that exists within the vancouver merFish runs.
 
+The `"ir_upper"` is one plus the number of imaging rounds that you want to look at. In addition, the `"z_lower"` is the parameters for the lowest z-height you want to look at. The visualiser will assign the lowest value with an index of zero on the scroll bar. If there are certain z-slices or FOVs missing in the analysis, then the visualiser will skip loading those entirely.  
+
 Once the `config.yaml` file has been defined
 ```
 python main.py
 ```
 
 will launch the multi-dimensional napari viewer. 
+
+# TODO:
+
+1. Add schema
+2. Add selection of imaging rounds
+3. Add widget to show codebook and select genes from it.
